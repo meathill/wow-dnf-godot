@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<title>猎归</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+html, body {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	height: 100dvh;
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
+body {
+	color: white;
+	background-color: black;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+	touch-action: none;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: #242424;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+
+@font-face {
+	font-family: "Noto Sans SC";
+	src: url("NotoSansSC-Regular.ttf") format("truetype");
+	font-display: swap;
+}
+
+#safe-probe {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	visibility: hidden;
+	pointer-events: none;
+	padding-left: constant(safe-area-inset-left);
+	padding-top: constant(safe-area-inset-top);
+	padding-right: constant(safe-area-inset-right);
+	padding-bottom: constant(safe-area-inset-bottom);
+	padding-left: env(safe-area-inset-left);
+	padding-top: env(safe-area-inset-top);
+	padding-right: env(safe-area-inset-right);
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
+#rotate-hint {
+	display: none;
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	margin: 0;
+	box-sizing: border-box;
+	background: #0c1218;
+	color: #f3efe4;
+	font-family: "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+	font-size: 1.75rem;
+	line-height: 1.4;
+	text-align: center;
+	align-items: center;
+	justify-content: center;
+	padding: calc(1.5rem + env(safe-area-inset-top)) calc(1.5rem + env(safe-area-inset-right)) calc(1.5rem + env(safe-area-inset-bottom)) calc(1.5rem + env(safe-area-inset-left));
+	touch-action: none;
+}
+
+#rotate-hint.visible {
+	display: flex;
+}
+		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" src="index.png" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<div id="safe-probe"></div>
+		<div id="rotate-hint" aria-hidden="true">请横持手机</div>
+
+		<script src="index.js"></script>
+		<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":847312,"index.wasm":35376909},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_THREADS_ENABLED = false;
+const engine = new Engine(GODOT_CONFIG);
+
+window.huntSafeInsets = function () {
+	var el = document.getElementById('safe-probe');
+	if (!el) {
+		return '0,0,0,0';
+	}
+	var cs = window.getComputedStyle(el);
+	function px(v) {
+		var n = parseFloat(v);
+		return isNaN(n) ? 0 : n;
+	}
+	return px(cs.paddingLeft) + ',' + px(cs.paddingTop) + ',' + px(cs.paddingRight) + ',' + px(cs.paddingBottom);
+};
+
+function pageSize() {
+	var vv = window.visualViewport;
+	var w = vv && vv.width ? vv.width : window.innerWidth;
+	var h = vv && vv.height ? vv.height : window.innerHeight;
+	return { w: w, h: h };
+}
+
+function updateRotateHint() {
+	var hint = document.getElementById('rotate-hint');
+	if (!hint) {
+		return;
+	}
+	var size = pageSize();
+	var portrait = size.h > size.w;
+	hint.classList.toggle('visible', portrait);
+	hint.setAttribute('aria-hidden', portrait ? 'false' : 'true');
+}
+
+function pinCanvas() {
+	var canvas = document.getElementById('canvas');
+	var vv = window.visualViewport;
+	if (!canvas || !vv) {
+		return;
+	}
+	canvas.style.left = (vv.offsetLeft || 0) + 'px';
+	canvas.style.top = (vv.offsetTop || 0) + 'px';
+}
+
+var landscapeLockTried = false;
+function requestLandscapeLock() {
+	if (landscapeLockTried) {
+		return;
+	}
+	landscapeLockTried = true;
+	try {
+		if (screen.orientation && typeof screen.orientation.lock === 'function') {
+			var pending = screen.orientation.lock('landscape');
+			if (pending && typeof pending.catch === 'function') {
+				pending.catch(function () {});
+			}
+		}
+	} catch (err) {}
+}
+
+document.addEventListener('touchstart', requestLandscapeLock, true);
+window.addEventListener('resize', updateRotateHint);
+window.addEventListener('orientationchange', function () {
+	setTimeout(updateRotateHint, 60);
+	setTimeout(pinCanvas, 60);
+});
+if (window.visualViewport) {
+	window.visualViewport.addEventListener('resize', function () {
+		updateRotateHint();
+		pinCanvas();
+	});
+	window.visualViewport.addEventListener('scroll', pinCanvas);
+}
+updateRotateHint();
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occured');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			Promise.race([
+				navigator.serviceWorker.getRegistration().then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			}).then(() => {
+				window.location.reload();
+			});
+		} else {
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+			pinCanvas();
+			updateRotateHint();
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>
+
