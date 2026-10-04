@@ -2,15 +2,24 @@ extends Node2D
 
 const Stage = preload("res://scripts/stage.gd")
 const FAR_TEX: Texture2D = preload("res://sprites/cut/bg_far.png")
+const HILLS_TEX: Texture2D = preload("res://sprites/cut/band_hills.png")
 const MID_TEX: Texture2D = preload("res://sprites/cut/bg_mid.png")
+const TREES_TEX: Texture2D = preload("res://sprites/cut/band_trees.png")
+const FENCE_TEX: Texture2D = preload("res://sprites/cut/band_fence.png")
+const NEAR_TEX: Texture2D = preload("res://sprites/cut/band_near.png")
 const LANE_TEX: Texture2D = preload("res://sprites/cut/lane_tile.jpg")
 const BUSH_TEX: Texture2D = preload("res://sprites/cut/bush.png")
 const ParallaxFollow := preload("res://scripts/parallax_follow.gd")
 const BUSH_H := 58.0
 
-# Fraction of the camera travel. 0 would stick to the screen. 1 matches the ground.
-const FAR_SCROLL := 0.08
-const MID_SCROLL := 0.25
+# Fraction of camera travel. Small steps from a nearly still sky down to the lane.
+# 0 would stick to the screen. 1 matches the ground the hunter walks on.
+const FAR_SCROLL := 0.04
+const HILLS_SCROLL := 0.12
+const MID_SCROLL := 0.20
+const TREES_SCROLL := 0.30
+const FENCE_SCROLL := 0.42
+const NEAR_SCROLL := 0.58
 # bg_far.png has 180px of extra sky above the original horizon line.
 const FAR_SKY_PAD := 180.0
 # Lane tile fills the walkable band and the grass edges above and below it.
@@ -22,18 +31,19 @@ var cam: Camera2D
 var hud: CanvasLayer
 var remaining := 3
 var ended := false
-var far_root: Node2D
-var mid_root: Node2D
+var scroll_roots: Array[Node2D] = []
+var scroll_rates: Array[float] = []
 
 
 func _ready() -> void:
 	# Painted layers scroll in the world. None of them are parented to the camera.
-	far_root = _layer("Far", -80)
-	_tile_strip(far_root, FAR_TEX, FAR_SKY_PAD, 1.0, -3, 6)
-	mid_root = _layer("Mid", -60)
-	var mid := _sprite(MID_TEX, 1.0)
-	mid.position = Vector2(0.0, 0.0)
-	mid_root.add_child(mid)
+	# Speeds step up a little each time so the depth reads as one continuous scroll.
+	_scrolled("Far", FAR_TEX, -100, FAR_SCROLL, FAR_SKY_PAD, -3, 6)
+	_scrolled("Hills", HILLS_TEX, -86, HILLS_SCROLL, 0.0, -3, 6)
+	_scrolled("Mid", MID_TEX, -72, MID_SCROLL, 0.0, 0, 1)
+	_scrolled("Trees", TREES_TEX, -58, TREES_SCROLL, 0.0, -3, 6)
+	_scrolled("Fence", FENCE_TEX, -46, FENCE_SCROLL, 0.0, -3, 6)
+	_scrolled("NearField", NEAR_TEX, -34, NEAR_SCROLL, 0.0, -3, 6)
 
 	var world := Node2D.new()
 	world.name = "World"
@@ -91,8 +101,16 @@ func sync_parallax() -> void:
 	var view := get_viewport().get_visible_rect().size
 	var cam_left := cam.get_screen_center_position().x - view.x * 0.5
 	# World position lags the camera so the layer only travels `scroll` of the way.
-	far_root.position.x = cam_left * (1.0 - FAR_SCROLL)
-	mid_root.position.x = cam_left * (1.0 - MID_SCROLL)
+	for i in scroll_roots.size():
+		var rate: float = scroll_rates[i]
+		scroll_roots[i].position.x = cam_left * (1.0 - rate)
+
+
+func _scrolled(layer_name: String, tex: Texture2D, z: int, rate: float, y_pad: float, i0: int, i1: int) -> void:
+	var node := _layer(layer_name, z)
+	_tile_strip(node, tex, y_pad, 1.0, i0, i1)
+	scroll_roots.append(node)
+	scroll_rates.append(rate)
 
 
 func _layer(layer_name: String, z: int) -> Node2D:
