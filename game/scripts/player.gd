@@ -8,6 +8,7 @@ const DEPTH_SPEED := 180.0
 const JUMP_V := 560.0
 const GRAVITY := 1700.0
 const SPRITE_PATH := "res://sprites/player.png"
+const HUNTER_DIR := "res://sprites/hunter/"
 
 var facing := 1
 var hp := 100
@@ -38,6 +39,7 @@ var jump_edge := false
 var j_was := false
 var jump_was := false
 var tex: Texture2D
+var frames := {}
 
 signal hp_changed(current: int, maximum: int)
 signal died
@@ -46,7 +48,11 @@ signal combo_changed(text: String)
 
 func _ready() -> void:
 	add_to_group("player")
-	if FileAccess.file_exists(SPRITE_PATH):
+	for frame_name in ["idle", "walk", "attack", "jump"]:
+		var frame_path: String = HUNTER_DIR + frame_name + ".png"
+		if FileAccess.file_exists(frame_path):
+			frames[frame_name] = load(frame_path)
+	if frames.is_empty() and FileAccess.file_exists(SPRITE_PATH):
 		tex = load(SPRITE_PATH)
 	hp_changed.emit(hp, max_hp)
 
@@ -276,6 +282,22 @@ func _combo_text(index: int, kind: String) -> String:
 	return "第三击 · 击倒"
 
 
+func _frame_tex() -> Texture2D:
+	# Right-facing strip. Horizontal flip is the facing scale in _draw.
+	var key := "idle"
+	if state == "attack":
+		key = "attack"
+	elif z > 0.0:
+		key = "jump"
+	elif moving and state != "hurt" and state != "dead":
+		key = "walk"
+	if frames.has(key):
+		return frames[key]
+	if frames.has("idle"):
+		return frames["idle"]
+	return tex
+
+
 func _draw() -> void:
 	var shadow := 1.0 - clampf(z / 220.0, 0.0, 0.45)
 	draw_colored_polygon(_ellipse(18.0 * shadow, 6.0 * shadow), Color(0, 0, 0, 0.32))
@@ -288,10 +310,11 @@ func _draw() -> void:
 		draw_set_transform(Vector2(0, -18), 1.2 * float(facing), Vector2(1, 1))
 	else:
 		draw_set_transform(Vector2(0, -z + bob), 0.0, Vector2(float(facing), 1))
-	if tex:
-		var tw := float(tex.get_width())
-		var th := float(tex.get_height())
-		draw_texture_rect(tex, Rect2(-tw * 0.5, -th, tw, th), false)
+	var frame := _frame_tex()
+	if frame:
+		var tw := float(frame.get_width())
+		var th := float(frame.get_height())
+		draw_texture_rect(frame, Rect2(-tw * 0.5, -th, tw, th), false)
 	else:
 		_draw_placeholder()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

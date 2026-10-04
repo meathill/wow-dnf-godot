@@ -7,10 +7,13 @@ var cam: Camera2D
 var hud: CanvasLayer
 var remaining := 3
 var ended := false
+var backdrop: Sprite2D
 
 
 func _ready() -> void:
-	_build_scenery()
+	var has_bg := FileAccess.file_exists("res://sprites/bg_hunt.png")
+	if not has_bg:
+		_build_scenery()
 	var world := Node2D.new()
 	world.name = "World"
 	world.y_sort_enabled = true
@@ -40,6 +43,15 @@ func _ready() -> void:
 	cam.position_smoothing_speed = 6.0
 	add_child(cam)
 	cam.make_current()
+	if has_bg:
+		backdrop = Sprite2D.new()
+		backdrop.name = "Backdrop"
+		backdrop.texture = load("res://sprites/bg_hunt.png")
+		backdrop.centered = true
+		backdrop.z_index = -40
+		backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		cam.add_child(backdrop)
+		_fit_backdrop()
 
 	hud = preload("res://scenes/hud.tscn").instantiate()
 	add_child(hud)
@@ -53,6 +65,18 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if player:
 		cam.position = Vector2(player.position.x, Stage.VIEW_H * 0.5)
+	_fit_backdrop()
+
+
+func _fit_backdrop() -> void:
+	if backdrop == null or backdrop.texture == null:
+		return
+	var view := get_viewport().get_visible_rect().size
+	var tex_size := backdrop.texture.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return
+	var cover := maxf(view.x / tex_size.x, view.y / tex_size.y)
+	backdrop.scale = Vector2(cover, cover)
 
 
 func _unhandled_input(event: InputEvent) -> void:
