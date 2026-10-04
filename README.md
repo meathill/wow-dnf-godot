@@ -91,7 +91,7 @@ build/web/        本机 HTML5 导出（未托管）
 
 ## 立绘
 
-- `game/sprites/cut/hunter_*.png` — 林狩四帧，侧视朝右，关卡里约 96px 高，透明底
+- `game/sprites/cut/hunter_*.png` — 林狩站立、三帧走路、三连各一帧、跳跃起/滞/落，侧视朝右，约 96px 高，透明底
 - `game/sprites/cut/boar.png` — 野猪，原图朝左，脚本镜像，约 72px 高
 - `game/sprites/cut/bush.png` — 荆丛，替掉车道上的色块
 - `game/sprites/cut/bg_hunt.jpg` — 镜头后的猎场远景

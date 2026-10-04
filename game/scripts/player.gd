@@ -10,11 +10,21 @@ const GRAVITY := 1700.0
 # Source PNGs are not stored under their res:// path in an export, only the imported
 # texture. FileAccess.file_exists() is therefore false on the web build and the old
 # code drew the colored polygon body. Preload keeps the cut frames in the pck.
-const HUNTER_H := 96.0
+# One scale for every frame so a shorter picture does not inflate him.
+# 630px is the idle canvas; 96px is the gameplay height.
+const HUNTER_SCALE := 96.0 / 630.0
+const WALK_STEP := 0.12
+const JUMP_APEX := 200.0
 const FRAME_IDLE: Texture2D = preload("res://sprites/cut/hunter_idle.png")
+const FRAME_WALK_A: Texture2D = preload("res://sprites/cut/hunter_walk_a.png")
 const FRAME_WALK: Texture2D = preload("res://sprites/cut/hunter_walk.png")
-const FRAME_ATTACK: Texture2D = preload("res://sprites/cut/hunter_attack.png")
+const FRAME_WALK_B: Texture2D = preload("res://sprites/cut/hunter_walk_b.png")
+const FRAME_ATK1: Texture2D = preload("res://sprites/cut/hunter_atk1.png")
+const FRAME_ATK2: Texture2D = preload("res://sprites/cut/hunter_atk2.png")
+const FRAME_ATK3: Texture2D = preload("res://sprites/cut/hunter_atk3.png")
+const FRAME_JUMP_UP: Texture2D = preload("res://sprites/cut/hunter_jump_up.png")
 const FRAME_JUMP: Texture2D = preload("res://sprites/cut/hunter_jump.png")
+const FRAME_JUMP_DOWN: Texture2D = preload("res://sprites/cut/hunter_jump_down.png")
 
 var facing := 1
 var hp := 100
@@ -44,8 +54,8 @@ var attack_edge := false
 var jump_edge := false
 var j_was := false
 var jump_was := false
-var tex: Texture2D
-var frames := {}
+var walk_t := 0.0
+var walk_i := 0
 
 signal hp_changed(current: int, maximum: int)
 signal died
@@ -55,12 +65,6 @@ signal combo_changed(text: String)
 func _ready() -> void:
 	add_to_group("player")
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	frames = {
-		"idle": FRAME_IDLE,
-		"walk": FRAME_WALK,
-		"attack": FRAME_ATTACK,
-		"jump": FRAME_JUMP,
-	}
 	hp_changed.emit(hp, max_hp)
 
 
@@ -263,6 +267,15 @@ func _advance_free(delta: float) -> void:
 		vz = JUMP_V
 		z = 0.1
 	anim += delta * (9.0 if moving else 2.0)
+	# Walk cycle only while his feet are on the ground and he is actually moving.
+	if moving and z <= 0.0 and state != "hurt" and state != "dead":
+		walk_t += delta
+		while walk_t >= WALK_STEP:
+			walk_t -= WALK_STEP
+			walk_i = (walk_i + 1) % 3
+	else:
+		walk_t = 0.0
+		walk_i = 0
 
 
 func _apply_gravity(delta: float) -> void:
@@ -291,19 +304,50 @@ func _combo_text(index: int, kind: String) -> String:
 
 
 func _frame_tex() -> Texture2D:
-	# Right-facing strip. Horizontal flip is the facing scale in _draw.
-	var key := "idle"
+	# Art faces right. Facing left is the scale in _draw.
 	if state == "attack":
-		key = "attack"
-	elif z > 0.0:
-		key = "jump"
-	elif moving and state != "hurt" and state != "dead":
-		key = "walk"
-	if frames.has(key):
-		return frames[key]
-	if frames.has("idle"):
-		return frames["idle"]
-	return tex
+		if swing_index <= 0:
+			return FRAME_ATK1
+		if swing_index == 1:
+			return FRAME_ATK2
+		return FRAME_ATK3
+	if z > 0.0:
+		if vz > JUMP_APEX:
+			return FRAME_JUMP_UP
+		if vz < -JUMP_APEX:
+			return FRAME_JUMP_DOWN
+		return FRAME_JUMP
+	if moving and state != "hurt" and state != "dead":
+		if walk_i == 0:
+			return FRAME_WALK_A
+		if walk_i == 1:
+			return FRAME_WALK
+		return FRAME_WALK_B
+	return FRAME_IDLE
+
+
+func _foot_anchor(frame: Texture2D) -> Vector2:
+	# Source pixels of the planted foot, so frame changes do not slide or hop.
+	# y is the bottom opaque row of that foot.
+	if frame == FRAME_WALK_A:
+		return Vector2(180, 627)
+	if frame == FRAME_WALK:
+		return Vector2(202, 619)
+	if frame == FRAME_WALK_B:
+		return Vector2(178, 623)
+	if frame == FRAME_ATK1:
+		return Vector2(33, 612)
+	if frame == FRAME_ATK2:
+		return Vector2(34, 600)
+	if frame == FRAME_ATK3:
+		return Vector2(34, 599)
+	if frame == FRAME_JUMP_UP:
+		return Vector2(145, 610)
+	if frame == FRAME_JUMP:
+		return Vector2(150, 515)
+	if frame == FRAME_JUMP_DOWN:
+		return Vector2(113, 608)
+	return Vector2(32, 627)
 
 
 func _draw() -> void:
@@ -311,22 +355,17 @@ func _draw() -> void:
 	draw_colored_polygon(_ellipse(18.0 * shadow, 6.0 * shadow), Color(0, 0, 0, 0.32))
 	if invuln > 0.0 and sin(invuln * 46.0) > 0.0 and not dead:
 		return
-	var bob := 0.0
-	if state != "attack" and state != "dead":
-		bob = sin(anim) * 2.0
 	if state == "dead":
 		draw_set_transform(Vector2(0, -18), 1.2 * float(facing), Vector2(1, 1))
 	else:
-		draw_set_transform(Vector2(0, -z + bob), 0.0, Vector2(float(facing), 1))
+		draw_set_transform(Vector2(0, -z), 0.0, Vector2(float(facing), 1))
 	var frame := _frame_tex()
-	if frame:
-		var tw := float(frame.get_width())
-		var th := float(frame.get_height())
-		var s := HUNTER_H / th
-		var dw := tw * s
-		var dh := th * s
-		# Feet stay on the node origin. Height is the old gameplay size; width keeps aspect.
-		draw_texture_rect(frame, Rect2(-dw * 0.5, -dh, dw, dh), false)
+	var foot := _foot_anchor(frame)
+	var tw := float(frame.get_width())
+	var th := float(frame.get_height())
+	var s := HUNTER_SCALE
+	# Foot pixel sits on the node origin. Scale is shared, so aspect stays and height stays ~96.
+	draw_texture_rect(frame, Rect2(-foot.x * s, -(foot.y + 1.0) * s, tw * s, th * s), false)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
