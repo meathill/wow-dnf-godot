@@ -2,7 +2,7 @@
 
 原创横版清版动作的 Godot 4 单体仓库。玩家是猎人林狩。试玩只有第一关「猎归」：在荆丛猎场打野兽，地面攻击是三连。
 
-没有坐骑，也没有全屏慢动作。林狩、野猪和荆丛用 `game/sprites/cut/` 的透明底图，猎场远景是同目录的 `bg_hunt.jpg`。开场有约 5 秒中文过场。
+没有坐骑，也没有全屏慢动作。林狩、野猪和荆丛用 `game/sprites/cut/` 的透明底图。猎场是三层：远山几乎不动，树和牌楼慢一点，脚下土路（`lane_tile.jpg`）跟人和野猪一起走。开场有约 5 秒中文过场。
 
 ## 用 Godot 打开
 
@@ -94,6 +94,7 @@ build/web/        本机 HTML5 导出（未托管）
 - `game/sprites/cut/hunter_*.png` — 林狩站立、三帧走路、三连各一帧、跳跃起/滞/落，侧视朝右，约 96px 高，透明底
 - `game/sprites/cut/boar.png` — 野猪，原图朝左，脚本镜像，约 72px 高
 - `game/sprites/cut/bush.png` — 荆丛，替掉车道上的色块
-- `game/sprites/cut/bg_hunt.jpg` — 镜头后的猎场远景
+- `game/sprites/cut/bg_far.png` / `bg_mid.png` — 从 `bg_hunt.jpg` 拆出的远景和中景
+- `game/sprites/cut/lane_tile.jpg` — 脚下的土路，横向重复
 
 脚本用 `preload`。Web 导出里不能靠 `FileAccess.file_exists` 找这些源文件。

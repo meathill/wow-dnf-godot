@@ -1,24 +1,45 @@
 extends Node2D
 
 const Stage = preload("res://scripts/stage.gd")
-const BACKDROP_TEX: Texture2D = preload("res://sprites/cut/bg_hunt.jpg")
+const FAR_TEX: Texture2D = preload("res://sprites/cut/bg_far.png")
+const MID_TEX: Texture2D = preload("res://sprites/cut/bg_mid.png")
+const LANE_TEX: Texture2D = preload("res://sprites/cut/lane_tile.jpg")
 const BUSH_TEX: Texture2D = preload("res://sprites/cut/bush.png")
+const ParallaxFollow := preload("res://scripts/parallax_follow.gd")
 const BUSH_H := 58.0
+
+# Fraction of the camera travel. 0 would stick to the screen. 1 matches the ground.
+const FAR_SCROLL := 0.08
+const MID_SCROLL := 0.25
+# bg_far.png has 180px of extra sky above the original horizon line.
+const FAR_SKY_PAD := 180.0
+# Lane tile fills the walkable band and the grass edges above and below it.
+const GROUND_TOP := 360.0
+const GROUND_ROWS := 3
 
 var player: Node2D
 var cam: Camera2D
 var hud: CanvasLayer
 var remaining := 3
 var ended := false
-var backdrop: Sprite2D
+var far_root: Node2D
+var mid_root: Node2D
 
 
 func _ready() -> void:
-	# Painted backdrop is preloaded. Do not draw the flat sky / hill / lane polygons on top.
+	# Painted layers scroll in the world. None of them are parented to the camera.
+	far_root = _layer("Far", -80)
+	_tile_strip(far_root, FAR_TEX, FAR_SKY_PAD, 1.0, -3, 6)
+	mid_root = _layer("Mid", -60)
+	var mid := _sprite(MID_TEX, 1.0)
+	mid.position = Vector2(0.0, 0.0)
+	mid_root.add_child(mid)
+
 	var world := Node2D.new()
 	world.name = "World"
 	world.y_sort_enabled = true
 	add_child(world)
+	_lane(world)
 	_bushes(world)
 
 	player = preload("res://scenes/player.tscn").instantiate()
@@ -44,14 +65,11 @@ func _ready() -> void:
 	cam.position_smoothing_speed = 6.0
 	add_child(cam)
 	cam.make_current()
-	backdrop = Sprite2D.new()
-	backdrop.name = "Backdrop"
-	backdrop.texture = BACKDROP_TEX
-	backdrop.centered = true
-	backdrop.z_index = -40
-	backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	cam.add_child(backdrop)
-	_fit_backdrop()
+
+	var follow := Node.new()
+	follow.name = "ParallaxFollow"
+	follow.set_script(ParallaxFollow)
+	add_child(follow)
 
 	hud = preload("res://scenes/hud.tscn").instantiate()
 	add_child(hud)
@@ -65,18 +83,88 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if player:
 		cam.position = Vector2(player.position.x, Stage.VIEW_H * 0.5)
-	_fit_backdrop()
 
 
-func _fit_backdrop() -> void:
-	if backdrop == null or backdrop.texture == null:
+func sync_parallax() -> void:
+	if cam == null:
 		return
 	var view := get_viewport().get_visible_rect().size
-	var tex_size := backdrop.texture.get_size()
-	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
-		return
-	var cover := maxf(view.x / tex_size.x, view.y / tex_size.y)
-	backdrop.scale = Vector2(cover, cover)
+	var cam_left := cam.get_screen_center_position().x - view.x * 0.5
+	# World position lags the camera so the layer only travels `scroll` of the way.
+	far_root.position.x = cam_left * (1.0 - FAR_SCROLL)
+	mid_root.position.x = cam_left * (1.0 - MID_SCROLL)
+
+
+func _layer(layer_name: String, z: int) -> Node2D:
+	var node := Node2D.new()
+	node.name = layer_name
+	node.z_index = z
+	add_child(node)
+	return node
+
+
+func _sprite(tex: Texture2D, scale_xy: float) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.texture = tex
+	sprite.centered = false
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	sprite.scale = Vector2(scale_xy, scale_xy)
+	return sprite
+
+
+func _tile_strip(parent: Node2D, tex: Texture2D, y: float, scale_xy: float, i0: int, i1: int) -> void:
+	var step := tex.get_width() * scale_xy
+	for i in range(i0, i1):
+		var sprite := _sprite(tex, scale_xy)
+		sprite.position = Vector2(step * float(i), -y)
+		parent.add_child(sprite)
+
+
+func _lane(world: Node2D) -> void:
+	var tex := _seamless_lane(LANE_TEX.get_image())
+	var ground_h := Stage.VIEW_H - GROUND_TOP
+	var scale := ground_h / float(tex.get_height())
+	var step := float(tex.get_width()) * scale
+	var x0 := -step * 3.0
+	var x1 := Stage.LEVEL_WIDTH + step * 4.0
+	var guard := 0
+	var x := x0
+	while x < x1 and guard < 48:
+		for row in GROUND_ROWS:
+			var sprite := _sprite(tex, scale)
+			sprite.name = "Lane"
+			sprite.z_index = -20
+			sprite.position = Vector2(x, GROUND_TOP + ground_h * float(row))
+			world.add_child(sprite)
+		x += step
+		guard += 1
+
+
+func _seamless_lane(src: Image) -> Texture2D:
+	# Fade the right edge into the left edge so a horizontal repeat has no seam.
+	var img: Image = src.duplicate()
+	img.convert(Image.FORMAT_RGBA8)
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var blend: int = mini(96, int(w / 5))
+	for y in h:
+		for d in blend:
+			var t: float = float(blend - d) / float(blend)
+			t = t * t * (3.0 - 2.0 * t)
+			var x: int = w - 1 - d
+			var here: Color = img.get_pixel(x, y)
+			var edge: Color = img.get_pixel(d, y)
+			img.set_pixel(x, y, here.lerp(edge, t))
+	# Soft top so the grass edge sits on the hills instead of a hard cut.
+	var fade: int = mini(72, h)
+	for y in fade:
+		var a: float = float(y) / float(fade - 1)
+		a = a * a * (3.0 - 2.0 * a)
+		for x in w:
+			var px: Color = img.get_pixel(x, y)
+			px.a = a
+			img.set_pixel(x, y, px)
+	return ImageTexture.create_from_image(img)
 
 
 func _unhandled_input(event: InputEvent) -> void:
