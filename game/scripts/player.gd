@@ -7,8 +7,14 @@ const SPEED := 280.0
 const DEPTH_SPEED := 180.0
 const JUMP_V := 560.0
 const GRAVITY := 1700.0
-const SPRITE_PATH := "res://sprites/player.png"
-const HUNTER_DIR := "res://sprites/hunter/"
+# Source PNGs are not stored under their res:// path in an export, only the imported
+# texture. FileAccess.file_exists() is therefore false on the web build and the old
+# code drew the colored polygon body. Preload keeps the cut frames in the pck.
+const HUNTER_H := 96.0
+const FRAME_IDLE: Texture2D = preload("res://sprites/cut/hunter_idle.png")
+const FRAME_WALK: Texture2D = preload("res://sprites/cut/hunter_walk.png")
+const FRAME_ATTACK: Texture2D = preload("res://sprites/cut/hunter_attack.png")
+const FRAME_JUMP: Texture2D = preload("res://sprites/cut/hunter_jump.png")
 
 var facing := 1
 var hp := 100
@@ -48,12 +54,13 @@ signal combo_changed(text: String)
 
 func _ready() -> void:
 	add_to_group("player")
-	for frame_name in ["idle", "walk", "attack", "jump"]:
-		var frame_path: String = HUNTER_DIR + frame_name + ".png"
-		if FileAccess.file_exists(frame_path):
-			frames[frame_name] = load(frame_path)
-	if frames.is_empty() and FileAccess.file_exists(SPRITE_PATH):
-		tex = load(SPRITE_PATH)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	frames = {
+		"idle": FRAME_IDLE,
+		"walk": FRAME_WALK,
+		"attack": FRAME_ATTACK,
+		"jump": FRAME_JUMP,
+	}
 	hp_changed.emit(hp, max_hp)
 
 
@@ -315,45 +322,12 @@ func _draw() -> void:
 	if frame:
 		var tw := float(frame.get_width())
 		var th := float(frame.get_height())
-		draw_texture_rect(frame, Rect2(-tw * 0.5, -th, tw, th), false)
-	else:
-		_draw_placeholder()
+		var s := HUNTER_H / th
+		var dw := tw * s
+		var dh := th * s
+		# Feet stay on the node origin. Height is the old gameplay size; width keeps aspect.
+		draw_texture_rect(frame, Rect2(-dw * 0.5, -dh, dw, dh), false)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-func _draw_placeholder() -> void:
-	var cloak := Color("#2c5a3c")
-	var skin := Color("#e2be9a")
-	if state == "hurt":
-		cloak = Color("#6d3030")
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-8, -8), Vector2(-14, -34), Vector2(-6, -36), Vector2(-4, -10),
-	]), Color("#1d1814"))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(6, -8), Vector2(4, -36), Vector2(12, -34), Vector2(14, -8),
-	]), Color("#1d1814"))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-16, -36), Vector2(-18, -62), Vector2(-6, -70), Vector2(14, -62), Vector2(16, -34),
-	]), cloak)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-12, -58), Vector2(-14, -74), Vector2(0, -80), Vector2(12, -72), Vector2(10, -58),
-	]), Color("#241c18"))
-	draw_colored_polygon(_ellipse_at(Vector2(0, -86), 11, 12), skin)
-	var reach := 16.0
-	if state == "attack":
-		var u := clampf((swing_t - 0.02) / 0.16, 0.0, 1.0)
-		if swing_t > Rules.ACTIVE_END:
-			u = clampf(1.0 - (swing_t - Rules.ACTIVE_END) / 0.14, 0.15, 1.0)
-		reach = 20.0 + u * (48.0 if swing_index == 2 else 36.0)
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(-8, -18), Vector2(72, -16), Vector2(72, 18), Vector2(-14, 16),
-		]), Color(1, 1, 1, 0.16))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(8, -50), Vector2(reach, -58), Vector2(reach + 10, -50), Vector2(12, -42),
-	]), Color("#d9d3c5"))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(6, -44), Vector2(18, -58), Vector2(22, -50), Vector2(10, -40),
-	]), Color("#8a5a32"))
 
 
 func _ellipse(rx: float, ry: float) -> PackedVector2Array:

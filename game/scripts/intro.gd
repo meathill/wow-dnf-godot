@@ -4,7 +4,7 @@ extends Control
 
 const UiFont = preload("res://scripts/ui_font.gd")
 const LEVEL := "res://scenes/level1.tscn"
-const PLAYER_SPRITE := "res://sprites/player.png"
+const HUNTER_TEX: Texture2D = preload("res://sprites/cut/hunter_idle.png")
 const INTRO_SECONDS := 5.5
 
 var elapsed := 0.0
@@ -50,8 +50,8 @@ func _ready() -> void:
 	add_child(ground)
 
 	hunter = TextureRect.new()
-	if FileAccess.file_exists(PLAYER_SPRITE):
-		hunter.texture = load(PLAYER_SPRITE)
+	hunter.texture = HUNTER_TEX
+	hunter.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	hunter.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	hunter.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	hunter.position = Vector2(160, 360)

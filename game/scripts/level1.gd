@@ -1,6 +1,9 @@
 extends Node2D
 
 const Stage = preload("res://scripts/stage.gd")
+const BACKDROP_TEX: Texture2D = preload("res://sprites/cut/bg_hunt.jpg")
+const BUSH_TEX: Texture2D = preload("res://sprites/cut/bush.png")
+const BUSH_H := 58.0
 
 var player: Node2D
 var cam: Camera2D
@@ -11,9 +14,7 @@ var backdrop: Sprite2D
 
 
 func _ready() -> void:
-	var has_bg := FileAccess.file_exists("res://sprites/bg_hunt.png")
-	if not has_bg:
-		_build_scenery()
+	# Painted backdrop is preloaded. Do not draw the flat sky / hill / lane polygons on top.
 	var world := Node2D.new()
 	world.name = "World"
 	world.y_sort_enabled = true
@@ -43,15 +44,14 @@ func _ready() -> void:
 	cam.position_smoothing_speed = 6.0
 	add_child(cam)
 	cam.make_current()
-	if has_bg:
-		backdrop = Sprite2D.new()
-		backdrop.name = "Backdrop"
-		backdrop.texture = load("res://sprites/bg_hunt.png")
-		backdrop.centered = true
-		backdrop.z_index = -40
-		backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		cam.add_child(backdrop)
-		_fit_backdrop()
+	backdrop = Sprite2D.new()
+	backdrop.name = "Backdrop"
+	backdrop.texture = BACKDROP_TEX
+	backdrop.centered = true
+	backdrop.z_index = -40
+	backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	cam.add_child(backdrop)
+	_fit_backdrop()
 
 	hud = preload("res://scenes/hud.tscn").instantiate()
 	add_child(hud)
@@ -100,65 +100,23 @@ func _on_player_died() -> void:
 	hud.show_result("林狩倒下了\n按 R 重开")
 
 
-func _build_scenery() -> void:
-	var scenery := Node2D.new()
-	scenery.name = "Scenery"
-	scenery.z_index = -10
-	add_child(scenery)
-	var width := Stage.LEVEL_WIDTH
-	_poly(scenery, PackedVector2Array([
-		Vector2(0, 0), Vector2(width, 0), Vector2(width, 430), Vector2(0, 430),
-	]), Color("#8eabbf"))
-	_hill(scenery, width, Color("#6d8b78"), 300.0, 70.0, 90.0)
-	_hill(scenery, width, Color("#3f624c"), 390.0, 48.0, 70.0)
-	_poly(scenery, PackedVector2Array([
-		Vector2(0, 430), Vector2(width, 430), Vector2(width, Stage.VIEW_H), Vector2(0, Stage.VIEW_H),
-	]), Color("#6a5338"))
-	_poly(scenery, PackedVector2Array([
-		Vector2(0, Stage.LANE_TOP), Vector2(width, Stage.LANE_TOP),
-		Vector2(width, Stage.LANE_BOTTOM), Vector2(0, Stage.LANE_BOTTOM),
-	]), Color("#7d6244"))
-	_poly(scenery, PackedVector2Array([
-		Vector2(0, Stage.LANE_TOP), Vector2(width, Stage.LANE_TOP),
-		Vector2(width, Stage.LANE_TOP + 6), Vector2(0, Stage.LANE_TOP + 6),
-	]), Color("#3e4a38"))
-	_poly(scenery, PackedVector2Array([
-		Vector2(0, Stage.LANE_BOTTOM), Vector2(width, Stage.LANE_BOTTOM),
-		Vector2(width, Stage.LANE_BOTTOM + 8), Vector2(0, Stage.LANE_BOTTOM + 8),
-	]), Color("#3a2c22"))
-
-
 func _bushes(world: Node2D) -> void:
 	var spots := [
 		Vector2(320, 470), Vector2(540, 640), Vector2(860, 460),
 		Vector2(1280, 648), Vector2(1500, 470), Vector2(1900, 620), Vector2(2050, 490),
 	]
+	var scales: Array[float] = [1.0, 0.86, 1.08, 0.94, 1.04, 0.9, 1.0]
+	var tex_w := float(BUSH_TEX.get_width())
+	var tex_h := float(BUSH_TEX.get_height())
 	for i in spots.size():
-		var bush := Polygon2D.new()
+		var bush := Sprite2D.new()
+		bush.name = "Bush%d" % i
+		bush.texture = BUSH_TEX
+		bush.centered = false
+		bush.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		# Base of the cluster sits on the old polygon origin so y-sort matches the lane.
+		bush.offset = Vector2(-tex_w * 0.5, -tex_h)
+		var s := (BUSH_H / tex_h) * scales[i]
+		bush.scale = Vector2(s, s)
 		bush.position = spots[i]
-		bush.color = Color("#2f4a34") if i % 2 == 0 else Color("#3d5a32")
-		bush.polygon = PackedVector2Array([
-			Vector2(0, 0), Vector2(-26, -8), Vector2(-16, -42), Vector2(0, -56), Vector2(18, -40), Vector2(28, -6),
-		])
 		world.add_child(bush)
-
-
-func _hill(parent: Node2D, width: float, color: Color, base_y: float, amp: float, step: float) -> void:
-	var pts := PackedVector2Array()
-	pts.append(Vector2(0, base_y + 30))
-	var x := 0.0
-	var i := 0
-	while x <= width:
-		var y := base_y - amp * (0.45 + 0.55 * absf(sin(float(i) * 1.7)))
-		pts.append(Vector2(x, y))
-		x += step
-		i += 1
-	pts.append(Vector2(width, base_y + 40))
-	_poly(parent, pts, color)
-
-
-func _poly(parent: Node, pts: PackedVector2Array, color: Color) -> void:
-	var poly := Polygon2D.new()
-	poly.polygon = pts
-	poly.color = color
-	parent.add_child(poly)

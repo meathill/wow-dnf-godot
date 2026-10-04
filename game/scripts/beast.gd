@@ -1,7 +1,10 @@
 extends Node2D
 
 const Stage = preload("res://scripts/stage.gd")
-const SPRITE_PATH := "res://sprites/beast.png"
+# Cut boar faces left. Gameplay facing +1 is right, so the draw scale mirrors it.
+# Preload (not FileAccess.file_exists) so the exported pck actually shows the sprite.
+const BOAR_H := 72.0
+const BOAR_TEX: Texture2D = preload("res://sprites/cut/boar.png")
 
 @export var coat: Color = Color("#6f7d3e")
 
@@ -23,8 +26,8 @@ signal died
 
 func _ready() -> void:
 	add_to_group("beasts")
-	if FileAccess.file_exists(SPRITE_PATH):
-		tex = load(SPRITE_PATH)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	tex = BOAR_TEX
 
 
 func receive_hit(from_facing: int, kind: String, dmg: int, stop: float) -> bool:
@@ -151,51 +154,24 @@ func _draw() -> void:
 	draw_colored_polygon(_ellipse(20.0 * shadow, 7.0 * shadow), Color(0, 0, 0, 0.3))
 	if state != "dead":
 		var ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0)
-		var bar_y := -((tex.get_height() + 10) if tex else 86) - z
+		var bar_y := -BOAR_H - 10.0 - z
 		draw_rect(Rect2(-18, bar_y, 36, 5), Color(0, 0, 0, 0.55))
 		draw_rect(Rect2(-18, bar_y, 36.0 * ratio, 5), Color("#d2c07a"))
 	var bob := sin(anim) * (1.5 if state == "chase" else 0.0)
 	var lay := state == "down" or state == "dead"
+	# Art faces left; mirror so +facing looks right, matching the old hit arc.
+	var flip := -1.0
 	if lay:
-		draw_set_transform(Vector2(0, -10), 1.15 * float(facing), Vector2(1, 0.55))
+		draw_set_transform(Vector2(0, -10), 1.15 * float(facing), Vector2(flip, 0.55))
 	else:
-		draw_set_transform(Vector2(0, -z + bob), 0.0, Vector2(float(facing), 1))
-	if tex:
-		var tw := float(tex.get_width())
-		var th := float(tex.get_height())
-		# HP bar sits above sprite
-		draw_texture_rect(tex, Rect2(-tw * 0.5, -th, tw, th), false)
-	else:
-		_draw_placeholder()
+		draw_set_transform(Vector2(0, -z + bob), 0.0, Vector2(flip * float(facing), 1))
+	var tw := float(tex.get_width())
+	var th := float(tex.get_height())
+	var s := BOAR_H / th
+	var dw := tw * s
+	var dh := th * s
+	draw_texture_rect(tex, Rect2(-dw * 0.5, -dh, dw, dh), false)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-func _draw_placeholder() -> void:
-	var body := coat
-	if state == "windup":
-		body = body.lerp(Color("#c45a3a"), 0.45)
-	elif state == "hurt":
-		body = body.lerp(Color("#f2f2f2"), 0.45)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-22, -14), Vector2(-26, -36), Vector2(-8, -48), Vector2(18, -40), Vector2(24, -16),
-	]), body)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-8, -30), Vector2(-4, -44), Vector2(14, -42), Vector2(16, -28),
-	]), body.lightened(0.25))
-	draw_colored_polygon(_ellipse_at(Vector2(18, -46), 12, 10), body.darkened(0.1))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(20, -52), Vector2(28, -66), Vector2(32, -50),
-	]), body.darkened(0.2))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(24, -44), Vector2(36, -46), Vector2(30, -40),
-	]), Color("#efe6cf"))
-	draw_circle(Vector2(26, -48), 2.0, Color("#1a120c"))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-16, -12), Vector2(-20, -2), Vector2(-8, -2), Vector2(-8, -14),
-	]), body.darkened(0.15))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(6, -12), Vector2(4, -2), Vector2(16, -2), Vector2(14, -14),
-	]), body.darkened(0.15))
 
 
 func _ellipse(rx: float, ry: float) -> PackedVector2Array:
