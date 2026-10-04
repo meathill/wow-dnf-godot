@@ -36,7 +36,7 @@ var anim := 0.0
 var attack_edge := false
 var jump_edge := false
 var j_was := false
-var w_was := false
+var jump_was := false
 var tex: Texture2D
 
 signal hp_changed(current: int, maximum: int)
@@ -97,12 +97,16 @@ func hurt(amount: int, from_facing: int) -> bool:
 
 
 func _poll_edges() -> void:
-	var j := Input.is_physical_key_pressed(KEY_J)
-	attack_edge = j and not j_was
+	var j := Input.is_physical_key_pressed(KEY_J) or VInput.attack_held
+	attack_edge = (j and not j_was) or VInput.attack_just
 	j_was = j
-	var w := Input.is_physical_key_pressed(KEY_W)
-	jump_edge = w and not w_was
-	w_was = w
+	var k := (
+		Input.is_physical_key_pressed(KEY_K)
+		or Input.is_physical_key_pressed(KEY_SPACE)
+		or VInput.jump_held
+	)
+	jump_edge = (k and not jump_was) or VInput.jump_just
+	jump_was = k
 
 
 func _on_attack_pressed() -> void:
@@ -132,7 +136,10 @@ func _begin_swing(index: int) -> void:
 	link_left = 0.0
 	hit_ids.clear()
 	if index == 2:
-		hit_kind = Rules.hit3_kind(Input.is_physical_key_pressed(KEY_UP), Input.is_physical_key_pressed(KEY_DOWN))
+		# 上/下 = arrows or virtual pad. W/S are depth-only and do not choose throw.
+		var hold_up := Input.is_physical_key_pressed(KEY_UP) or VInput.move_y < -0.2
+		var hold_down := Input.is_physical_key_pressed(KEY_DOWN) or VInput.move_y > 0.2
+		hit_kind = Rules.hit3_kind(hold_up, hold_down)
 	else:
 		hit_kind = "flinch"
 	combo_changed.emit(_combo_text(index, hit_kind))
@@ -222,14 +229,15 @@ func _advance_free(delta: float) -> void:
 			chain_next = 0
 			combo_changed.emit("接招超时，回到第一击")
 	var hx := 0.0
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
+	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT) or VInput.move_x < -0.2:
 		hx -= 1.0
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
+	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT) or VInput.move_x > 0.2:
 		hx += 1.0
 	var hy := 0.0
-	if Input.is_physical_key_pressed(KEY_UP):
+	# W/S and arrows both move depth; virtual pad uses the same axes.
+	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP) or VInput.move_y < -0.2:
 		hy -= 1.0
-	if Input.is_physical_key_pressed(KEY_DOWN) or Input.is_physical_key_pressed(KEY_S):
+	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN) or VInput.move_y > 0.2:
 		hy += 1.0
 	if hx != 0.0:
 		facing = -1 if hx < 0.0 else 1

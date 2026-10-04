@@ -9,6 +9,10 @@ run/main_scene="res://scenes/intro.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+VInput="*res://scripts/vinput.gd"
+
 [display]
 
 window/size/viewport_width=1280
@@ -16,7 +20,16 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom="res://themes/default.tres"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=true

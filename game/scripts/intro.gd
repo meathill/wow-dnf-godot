@@ -2,6 +2,7 @@ extends Control
 
 ## Short original intro before level 1. Skip with J or Enter.
 
+const UiFont = preload("res://scripts/ui_font.gd")
 const LEVEL := "res://scenes/level1.tscn"
 const PLAYER_SPRITE := "res://sprites/player.png"
 const INTRO_SECONDS := 5.5
@@ -22,6 +23,7 @@ func _ready() -> void:
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.color = Color("#0c1218")
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
 	# Distant green fire glow (original, not a copyrighted skybox)
@@ -29,11 +31,13 @@ func _ready() -> void:
 	glow.position = Vector2(780, 40)
 	glow.size = Vector2(420, 180)
 	glow.color = Color(0.18, 0.72, 0.28, 0.22)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(glow)
 	var glow2 := ColorRect.new()
 	glow2.position = Vector2(900, 20)
 	glow2.size = Vector2(220, 100)
 	glow2.color = Color(0.35, 0.95, 0.4, 0.18)
+	glow2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(glow2)
 
 	# Ground strip
@@ -41,6 +45,7 @@ func _ready() -> void:
 	ground.position = Vector2(0, 520)
 	ground.size = Vector2(1280, 200)
 	ground.color = Color("#2a3428")
+	ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ground)
 
 	hunter = TextureRect.new()
@@ -51,10 +56,10 @@ func _ready() -> void:
 	hunter.position = Vector2(160, 360)
 	hunter.size = Vector2(140, 240)
 	hunter.modulate = Color(1, 1, 1, 0)
+	hunter.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hunter)
 
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Noto Sans CJK SC", "Noto Sans CJK", "Noto Serif CJK SC", "Sans"])
+	var font := UiFont.get_font()
 
 	line1 = _make_label(font, Vector2(340, 220), "林狩在荆丛猎场下夹。", 34)
 	line2 = _make_label(font, Vector2(340, 280), "天边有一点绿火，他没在意。", 34)
@@ -76,6 +81,7 @@ func _make_label(font: Font, pos: Vector2, text: String, size: int) -> Label:
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("shadow_offset_x", 2)
 	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
 	return label
 
