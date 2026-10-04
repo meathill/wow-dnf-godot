@@ -1,0 +1,22 @@
+; Godot 4.3 project. Open this file, not the repository root.
+config_version=5
+
+[application]
+
+config/name="猎归"
+config/description="第一关试玩：荆丛猎场"
+run/main_scene="res://scenes/intro.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
