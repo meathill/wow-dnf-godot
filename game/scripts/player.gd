@@ -103,15 +103,16 @@ func hurt(amount: int, from_facing: int) -> bool:
 
 
 func _poll_edges() -> void:
+	# Held-edge only. attack_just is one frame later than physics and would double-fire touch attacks.
 	var j := Input.is_physical_key_pressed(KEY_J) or VInput.attack_held
-	attack_edge = (j and not j_was) or VInput.attack_just
+	attack_edge = j and not j_was
 	j_was = j
 	var k := (
 		Input.is_physical_key_pressed(KEY_K)
 		or Input.is_physical_key_pressed(KEY_SPACE)
 		or VInput.jump_held
 	)
-	jump_edge = (k and not jump_was) or VInput.jump_just
+	jump_edge = k and not jump_was
 	jump_was = k
 
 

@@ -14,6 +14,7 @@ var line1: Label
 var line2: Label
 var line3: Label
 var skip_label: Label
+var ground: ColorRect
 
 
 func _ready() -> void:
@@ -41,7 +42,7 @@ func _ready() -> void:
 	add_child(glow2)
 
 	# Ground strip
-	var ground := ColorRect.new()
+	ground = ColorRect.new()
 	ground.position = Vector2(0, 520)
 	ground.size = Vector2(1280, 200)
 	ground.color = Color("#2a3428")
@@ -69,6 +70,7 @@ func _ready() -> void:
 
 	skip_label = _make_label(font, Vector2(40, 660), "J / Enter 跳过", 18)
 	skip_label.modulate = Color("#a8b89a")
+	call_deferred("_ready_fit")
 
 
 func _make_label(font: Font, pos: Vector2, text: String, size: int) -> Label:
@@ -98,6 +100,32 @@ func _process(delta: float) -> void:
 	line3.modulate.a = clampf((elapsed - 2.5) / 0.5, 0.0, 1.0)
 	# Auto finish
 	if elapsed >= INTRO_SECONDS:
+		_go()
+
+
+func _ready_fit() -> void:
+	get_viewport().size_changed.connect(_fit_intro)
+	_fit_intro()
+
+
+func _fit_intro() -> void:
+	var s := get_viewport().get_visible_rect().size
+	var insets := VInput.safe_insets(s)
+	ground.position = Vector2(0, minf(520.0, s.y - 180.0))
+	ground.size = Vector2(s.x, maxf(s.y - ground.position.y, 160.0))
+	var shift := maxf(s.x - 1280.0, 0.0) * 0.25
+	line1.position = Vector2(340.0 + shift, 220)
+	line2.position = Vector2(340.0 + shift, 280)
+	line3.position = Vector2(340.0 + shift, 340)
+	var hunter_y := 360.0 if s.y >= 700.0 else minf(360.0, s.y * 0.42)
+	hunter.position = Vector2(160.0 + shift * 0.4, hunter_y)
+	skip_label.position = Vector2(40.0 + insets.x, s.y - 60.0 - insets.w)
+
+
+func _input(event: InputEvent) -> void:
+	if finished:
+		return
+	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed and VInput.wants_touch_controls():
 		_go()
 
 

@@ -36,7 +36,7 @@ godot --headless --path game --script res://scripts/combat_check.gd
 | 第三击起手时松开 ↑ / ↓ | 第三击把猎物打倒 |
 | R | 重开本关 |
 
-屏幕上始终有虚拟摇杆区（左：方向，右：J 攻击 / K 跳跃），触屏与鼠标都可用。
+手机以横屏为准。触屏、粗指针，或较矮的横屏窗口，左下有方向键、右下有 J（攻击）和 K（跳跃）。可以同时按住方向和 J/K。桌面鼠标不显示这套按键，仍用键盘。竖屏网页会提示「请横持手机」。
 
 口诀：**A/D 移动，W/S 前后，J 攻击，K 跳跃。第三下按住上或下是投。**
 
@@ -68,7 +68,13 @@ cd build/web && python3 -m http.server 8080
 godot --headless --path game --export-release "Web" ../build/web/index.html
 ```
 
-导出预设在 `game/export_presets.cfg`，`variant/thread_support=false`。
+导出预设在 `game/export_presets.cfg`，`variant/thread_support=false`。自定义页面是 `game/web/shell.html`（横屏锁定尝试、竖屏提示）。导出后执行：
+
+```bash
+python3 game/web/patch_viewport.py build/web/index.js
+cp game/fonts/NotoSansSC-Regular.ttf build/web/
+```
+
 
 ## 目录
 
